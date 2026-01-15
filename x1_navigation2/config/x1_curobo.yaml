@@ -1,0 +1,29 @@
+robot_cfg:
+  kinematics:
+    urdf_path: "/home/js/Downloads/src/isaacsim_python-second_competition/src/x1_description/urdf/mercury_x1.urdf"
+    asset_root_path: "/home/js/Downloads/src/isaacsim_python-second_competition/src/x1_description/urdf"
+    
+    base_link: "link_body"
+    ee_link: "link7_L" # Default, overridden in Python
+
+    cspace:
+      joint_names: 
+        - "joint1_L"
+        - "joint2_L"
+        - "joint3_L"
+        - "joint4_L"
+        - "joint5_L"
+        - "joint6_L"
+        - "joint7_L"
+
+      # Optimized retract config: Forward Ready Pose to avoid backward adjustments
+      # Tuned: J2(+) Forward, J3(-) Bend Up
+      retract_config: [0.0, 0.5, -1.0, -0.5, 0.0, 0.0, 0.0]
+      
+      # Reduced weights to prevent fighting between task and posture
+      null_space_weight: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+      cspace_distance_weight: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+      
+      # Drastically reduced limits for smoother motion
+      max_jerk: 50.0
+      max_acceleration: 2.5
