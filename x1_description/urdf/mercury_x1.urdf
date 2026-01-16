@@ -322,7 +322,7 @@
   <joint name="joint6_L" type="revolute">
     <axis xyz=" 0 0 1"/>
     <!-- <limit effort = "1000.0" lower = "-0.3490" upper = "4.6251" velocity = "0"/> -->
-    <limit effort = "1000.0" lower = "-1.9198" upper = "3.0543" velocity = "2.0"/>
+    <limit effort = "1000.0" lower = "-1.9198" upper = "3.0543" velocity = "0.0"/>
     <parent link="link5_L"/>
     <child link="link6_L"/>
     <origin xyz= " 0 0 0.08" rpy = "1.5708 -1.5708 0"/>  
@@ -379,7 +379,7 @@
   <joint name="joint6_R" type="revolute">
     <axis xyz=" 0 0 1"/>
     <!-- <limit effort = "1000.0" lower = "-0.3490" upper = "4.6251" velocity = "0"/> -->
-    <limit effort = "1000.0" lower = "-1.9198" upper = "3.0543" velocity = "2.0"/>
+    <limit effort = "1000.0" lower = "-1.9198" upper = "3.0543" velocity = "0.0"/>
     <parent link="link5_R"/>
     <child link="link6_R"/>
     <origin xyz= " 0 0 0.08" rpy = "1.5708 -1.5708 0"/>  

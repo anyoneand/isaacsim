@@ -30,6 +30,7 @@ install(PROGRAMS
   scripts/apriltag_node.py
   scripts/vision_processor.py
   scripts/grasp_planner.py 
+  scripts/mission_coordinator.py
   DESTINATION lib/${PROJECT_NAME}
 )
 ament_package()

@@ -64,6 +64,15 @@ class DualArmCooperativePlanner(Node):
         # Start Homing Sequence
         self.trigger_homing = True 
 
+        # ====================== 新增：距离激活参数 ======================
+        self.MIN_ACTIVATION_DISTANCE = 0.45      # 单位：米，低于这个距离才启动cuRobo规划
+        self.MAX_ACTIVATION_DISTANCE = 0.80      # 超过这个距离完全不考虑抓取
+        self.DISTANCE_HYSTERESIS = 0.05          # 迟滞，避免频繁开关（可调小到0.02~0.03）
+
+        # 状态机变量（建议放在你的控制器类或主循环类里面）
+        self.is_curobo_active = False
+        self.last_distance = 100.0               # 上一次测量的距离，初始化很大
+
     def setup_curobo(self):
         self.get_logger().info("Setting up CuRobo...")
         self.tensor_args = TensorDeviceType(device=torch.device("cuda:0"), dtype=torch.float32)
@@ -125,6 +134,45 @@ class DualArmCooperativePlanner(Node):
             vals.append(self.current_joints_map[n])
         return np.array(vals, dtype=np.float32)
 
+    # ====================== 新增：计算EE到物体的距离（以左臂EE为例，双臂类似） ======================
+    def get_ee_to_object_distance(self, obj_pos: np.ndarray) -> float:
+        """
+        计算左臂末端执行器到物体的欧氏距离（简单3D距离）
+        obj_pos: [x, y, z] in base_link frame
+        """
+        current_L = self.get_current_joints("left")
+        if current_L is None:
+            return 100.0  # 缺关节数据时，认为很远
+
+        # 计算当前EE位姿 (Forward Kinematics)
+        js_tensor = torch.as_tensor(current_L, **self.tensor_args.as_torch_dict()).reshape(1, -1)
+        ee_pose_L = self.mg_left.kinematics.compute_fk(js_tensor)
+
+        pos_ee = ee_pose_L.position.cpu().numpy().flatten()  # shape (3,)
+        
+        diff = pos_ee - obj_pos
+        distance = np.linalg.norm(diff)
+        return distance
+
+    # ====================== 新增：带迟滞的激活逻辑 ======================
+    def should_activate_curobo(self, current_distance: float) -> bool:
+        """
+        带迟滞的开关逻辑，避免频繁启停cuRobo
+        """
+        if not self.is_curobo_active:
+            # 当前关闭 → 判断是否要开启
+            if current_distance <= (self.MIN_ACTIVATION_DISTANCE + self.DISTANCE_HYSTERESIS):
+                self.is_curobo_active = True
+                self.get_logger().info(f"物体进入激活范围！距离: {current_distance:.3f}m → 启动 cuRobo")
+        else:
+            # 当前开启 → 判断是否要关闭
+            if current_distance > (self.MAX_ACTIVATION_DISTANCE + self.DISTANCE_HYSTERESIS):
+                self.is_curobo_active = False
+                self.get_logger().info(f"物体太远！距离: {current_distance:.3f}m → 停止 cuRobo")
+        
+        self.last_distance = current_distance
+        return self.is_curobo_active
+
     def target_callback(self, msg):
         if not self.current_joints_map: return
 
@@ -138,7 +186,19 @@ class DualArmCooperativePlanner(Node):
         if self.state == "IDLE":
             try:
                 target_base = self.tf_buffer.transform(msg, self.robot_base_frame, timeout=Duration(seconds=1.0))
+                tx, ty, tz = target_base.point.x, target_base.point.y, target_base.point.z
+                obj_pos = np.array([tx, ty, tz])
+
+                # ====================== 新增：计算距离并判断是否激活 ======================
+                distance = self.get_ee_to_object_distance(obj_pos)
+                
+                if not self.should_activate_curobo(distance):
+                    self.get_logger().info(f"物体距离太远 ({distance:.3f}m)，暂不启动规划")
+                    return
+
+                # ====================== 只有距离近时才执行规划 ======================
                 self.plan_dual_grasp(target_base)
+
             except Exception as e:
                 self.get_logger().error(f"Target error: {e}")
 
